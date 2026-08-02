@@ -33,6 +33,7 @@ CHANGE_KEYS = ("change_percent", "changepercent", "percent", "change", "diff")
 FA_DIGITS = str.maketrans("0123456789", "۰۱۲۳۴۵۶۷۸۹")
 
 first_dump_done = False
+service_date = None
 
 
 def fa(text):
@@ -62,6 +63,28 @@ def walk(node, path=""):
             yield from walk(v, f"{path}[{i}]")
     else:
         yield path, node
+
+
+def grab_date(data):
+    """تاریخ شمسی خود سرویس را برمی‌دارد."""
+    global service_date
+    if service_date:
+        return
+    for path, value in walk(data):
+        if path.split(".")[-1].lower() in ("date", "datetime", "update"):
+            text = str(value).strip()
+            if len(text) >= 10:
+                service_date = text[:16]  # تا دقیقه
+                return
+
+
+def load_previous():
+    """قیمت‌های اجرای قبلی را می‌خواند تا درصد تغییر واقعی حساب شود."""
+    try:
+        with open("prices.json", encoding="utf-8") as f:
+            return {r["t"]: r["v"] for r in json.load(f).get("rates", [])}
+    except Exception:
+        return {}
 
 
 def dump_once(data):
@@ -102,6 +125,7 @@ def main():
     if not token:
         sys.exit("NERKH_TOKEN تنظیم نشده است. آن را در Secrets ریپو بسازید.")
 
+    previous = load_previous()
     rates = []
     for title, path, is_usd in ITEMS:
         try:
@@ -116,13 +140,18 @@ def main():
             continue
 
         dump_once(data)
+        grab_date(data)
         price, change = pull(data)
         if price is None:
             print(f"⚠ {title} — قیمت در پاسخ پیدا نشد")
             continue
 
         price = int(price) if is_usd else int(price / DIVIDE_BY)
-        change = change or 0.0
+
+        # اگر سرویس درصد تغییر نداد، از قیمت اجرای قبلی حساب می‌کنیم
+        if change is None:
+            old = previous.get(title)
+            change = ((price - old) / old * 100) if old else 0.0
         sign = "+" if change >= 0 else "-"
         change_txt = f"{sign}{fa(f'{abs(change):.1f}').replace('.', '٫')}٪"
 
@@ -132,8 +161,13 @@ def main():
     if not rates:
         sys.exit("هیچ نرخی گرفته نشد — نمادهای ITEMS را با مستندات تطبیق دهید.")
 
-    now = datetime.now(timezone(timedelta(hours=3, minutes=30)))  # وقت تهران
-    out = {"updated_at": fa(now.strftime("%Y/%m/%d - %H:%M")), "rates": rates}
+    if service_date:
+        stamp = fa(service_date.replace("-", "/").replace(" ", " - "))
+    else:
+        now = datetime.now(timezone(timedelta(hours=3, minutes=30)))  # وقت تهران
+        stamp = fa(now.strftime("%Y/%m/%d - %H:%M"))
+
+    out = {"updated_at": stamp, "rates": rates}
 
     with open("prices.json", "w", encoding="utf-8") as f:
         json.dump(out, f, ensure_ascii=False, indent=2)
