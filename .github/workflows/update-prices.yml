@@ -12,11 +12,11 @@ jobs:
   update:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Fetch prices
         env:
-          API_URL: ${{ secrets.API_URL }}
+          NERKH_TOKEN: ${{ secrets.NERKH_TOKEN }}
         run: python3 scripts/fetch_prices.py
 
       - name: Commit if changed
