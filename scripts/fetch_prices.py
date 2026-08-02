@@ -1,56 +1,59 @@
 #!/usr/bin/env python3
 """
-قیمت طلا/سکه/ارز را از وب‌سرویس می‌گیرد و prices.json را می‌سازد.
+قیمت طلا و سکه را از وب‌سرویس nerkh.io می‌گیرد و prices.json را می‌سازد.
 
-آدرس کامل API (همراه با کلید) از متغیر محیطی API_URL خوانده می‌شود،
-که در GitHub → Settings → Secrets → Actions با نام API_URL ذخیره می‌شود.
-اینطوری کلید هیچ‌جای کد و لاگ نمی‌افتد.
-
-حالت اول (کشف ساختار): اگر MAP خالی بماند، اسکریپت فقط ساختار خروجی
-سرویس را چاپ می‌کند تا ببینیم اسم فیلدها چیست.
+توکن از متغیر محیطی NERKH_TOKEN خوانده می‌شود
+(GitHub → Settings → Secrets and variables → Actions → NERKH_TOKEN)
+و به صورت هدر Authorization: Bearer ارسال می‌شود.
 """
 
 import json
 import os
 import sys
+import urllib.error
 import urllib.request
 from datetime import datetime, timedelta, timezone
 
-# ------------------------------------------------------------------
-# تنظیمات — بعد از دیدن خروجی، این بخش را پر می‌کنیم
-# ------------------------------------------------------------------
+BASE = "https://api.nerkh.io/v1/prices/json/"
 
-# هر ردیف: (عنوانی که روی سایت نشان داده می‌شود، مسیر/کلیدواژه در خروجی، دلاری؟)
-MAP = [
-    # ("طلای ۱۸ عیار (گرم)", "geram18", False),
-    # ("سکه امامی",          "sekee_emami", False),
+# (عنوان روی سایت، مسیر بعد از BASE، دلاری؟)
+# اگر نماد اشتباه باشد سرویس 404 می‌دهد و همان یک قلم رد می‌شود، بقیه کار می‌کنند.
+ITEMS = [
+    ("طلای ۱۸ عیار (گرم)", "gold/GOLD18K", False),
+    ("طلای ۲۴ عیار (گرم)", "gold/GOLD24K", False),
+    ("سکه امامی",          "gold/COIN_EMAMI", False),
+    ("اونس جهانی",         "gold/ONS", True),
 ]
 
-# اگر سرویس قیمت را به ریال می‌دهد، اینجا 10 بگذارید تا به تومان تبدیل شود
+# اگر سرویس ریال می‌دهد، 10 بگذارید تا تومان شود
 DIVIDE_BY = 1
 
-# ------------------------------------------------------------------
-
 PRICE_KEYS = ("current", "price", "value", "sell", "rate", "last", "amount", "close")
-CHANGE_KEYS = ("change_percent", "changePercent", "percent", "change", "diff", "d")
+CHANGE_KEYS = ("change_percent", "changepercent", "percent", "change", "diff")
 FA_DIGITS = str.maketrans("0123456789", "۰۱۲۳۴۵۶۷۸۹")
+
+first_dump_done = False
 
 
 def fa(text):
     return str(text).translate(FA_DIGITS)
 
 
-def fetch(url):
-    req = urllib.request.Request(url, headers={
-        "User-Agent": "Mozilla/5.0 (compatible; site-price-bot)",
-        "Accept": "application/json",
-    })
+def fetch(path, token):
+    req = urllib.request.Request(
+        BASE + path,
+        headers={
+            "Authorization": "Bearer " + token,
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+            "User-Agent": "Mozilla/5.0 (compatible; site-price-bot)",
+        },
+    )
     with urllib.request.urlopen(req, timeout=25) as r:
         return json.loads(r.read().decode("utf-8"))
 
 
 def walk(node, path=""):
-    """همه شاخه‌های JSON را به صورت (مسیر، مقدار) برمی‌گرداند."""
     if isinstance(node, dict):
         for k, v in node.items():
             yield from walk(v, f"{path}.{k}" if path else str(k))
@@ -61,42 +64,18 @@ def walk(node, path=""):
         yield path, node
 
 
-def describe(data):
-    print("\n" + "=" * 62)
-    print("ساختار خروجی سرویس (این را برای تنظیم MAP لازم داریم):")
-    print("=" * 62)
-    leaves = list(walk(data))
-    for path, value in leaves[:120]:
-        text = str(value)
-        if len(text) > 60:
-            text = text[:60] + "…"
-        print(f"  {path} = {text}")
-    if len(leaves) > 120:
-        print(f"  … و {len(leaves) - 120} مورد دیگر")
-    print("=" * 62 + "\n")
-
-
-def node_at(data, needle):
-    """گره‌ای را پیدا می‌کند که مسیرش شامل needle باشد."""
-    needle = needle.lower()
-
-    def rec(node, path=""):
-        if isinstance(node, dict):
-            for k, v in node.items():
-                p = f"{path}.{k}" if path else str(k)
-                if needle in p.lower() or needle in str(k).lower():
-                    return v
-                found = rec(v, p)
-                if found is not None:
-                    return found
-        elif isinstance(node, list):
-            for i, v in enumerate(node):
-                found = rec(v, f"{path}[{i}]")
-                if found is not None:
-                    return found
-        return None
-
-    return rec(data)
+def dump_once(data):
+    """ساختار اولین پاسخ موفق را چاپ می‌کند تا اگر لازم شد اصلاحش کنیم."""
+    global first_dump_done
+    if first_dump_done:
+        return
+    first_dump_done = True
+    print("\n" + "=" * 58)
+    print("ساختار پاسخ سرویس:")
+    for p, v in list(walk(data))[:60]:
+        text = str(v)
+        print(f"  {p} = {text[:60] + '…' if len(text) > 60 else text}")
+    print("=" * 58 + "\n")
 
 
 def to_number(value):
@@ -106,56 +85,43 @@ def to_number(value):
         return None
 
 
-def pull(node):
-    """از یک گره، قیمت و درصد تغییر را بیرون می‌کشد."""
+def pull(data):
+    """قیمت و درصد تغییر را از هر ساختاری بیرون می‌کشد."""
     price = change = None
-    if isinstance(node, dict):
-        for k in PRICE_KEYS:
-            for key in node:
-                if str(key).lower() == k:
-                    price = to_number(node[key])
-                    break
-            if price is not None:
-                break
-        for k in CHANGE_KEYS:
-            for key in node:
-                if str(key).lower() == k.lower():
-                    change = to_number(node[key])
-                    break
-            if change is not None:
-                break
-    else:
-        price = to_number(node)
+    for path, value in walk(data):
+        leaf = path.split(".")[-1].lower()
+        if price is None and leaf in PRICE_KEYS:
+            price = to_number(value)
+        if change is None and leaf in CHANGE_KEYS:
+            change = to_number(value)
     return price, change
 
 
 def main():
-    url = os.environ.get("API_URL", "").strip()
-    if not url:
-        sys.exit("API_URL تنظیم نشده است. آن را در Secrets ریپو بسازید.")
-
-    data = fetch(url)
-
-    if not MAP:
-        describe(data)
-        print("MAP خالی است — فعلاً فقط ساختار چاپ شد و prices.json دست نخورد.")
-        return
-
-    describe(data)
+    token = os.environ.get("NERKH_TOKEN", "").strip()
+    if not token:
+        sys.exit("NERKH_TOKEN تنظیم نشده است. آن را در Secrets ریپو بسازید.")
 
     rates = []
-    for title, needle, is_usd in MAP:
-        node = node_at(data, needle)
-        if node is None:
-            print(f"⚠ پیدا نشد: {title}  (کلیدواژه: {needle})")
+    for title, path, is_usd in ITEMS:
+        try:
+            data = fetch(path, token)
+        except urllib.error.HTTPError as e:
+            print(f"⚠ {title} — خطای {e.code} روی {path}")
+            if e.code == 401:
+                sys.exit("توکن پذیرفته نشد. اعتبار توکن را بررسی کنید.")
+            continue
+        except Exception as e:
+            print(f"⚠ {title} — {e}")
             continue
 
-        price, change = pull(node)
+        dump_once(data)
+        price, change = pull(data)
         if price is None:
-            print(f"⚠ قیمت خوانده نشد: {title}")
+            print(f"⚠ {title} — قیمت در پاسخ پیدا نشد")
             continue
 
-        price = int(price / DIVIDE_BY) if not is_usd else int(price)
+        price = int(price) if is_usd else int(price / DIVIDE_BY)
         change = change or 0.0
         sign = "+" if change >= 0 else "-"
         change_txt = f"{sign}{fa(f'{abs(change):.1f}').replace('.', '٫')}٪"
@@ -164,14 +130,14 @@ def main():
         print(f"✓ {title}: {price}")
 
     if not rates:
-        sys.exit("هیچ نرخی استخراج نشد — کلیدواژه‌های MAP را با خروجی بالا تطبیق دهید.")
+        sys.exit("هیچ نرخی گرفته نشد — نمادهای ITEMS را با مستندات تطبیق دهید.")
 
     now = datetime.now(timezone(timedelta(hours=3, minutes=30)))  # وقت تهران
     out = {"updated_at": fa(now.strftime("%Y/%m/%d - %H:%M")), "rates": rates}
 
     with open("prices.json", "w", encoding="utf-8") as f:
         json.dump(out, f, ensure_ascii=False, indent=2)
-    print("\nprices.json ساخته شد.")
+    print(f"\nprices.json ساخته شد با {len(rates)} قلم.")
 
 
 if __name__ == "__main__":
