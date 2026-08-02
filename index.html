@@ -400,7 +400,7 @@ html[dir="rtl"] .drawer{transform:translateX(-105%)}
         <p>قیمت نهایی هر قطعه بر اساس وزن، اجرت ساخت و مالیات همان لحظه محاسبه می‌شود.</p>
         <p id="stamp" style="color:var(--gold);font-size:12.5px;margin-top:8px">داده نمونه — هنوز به وب‌سرویس وصل نشده</p>
       </div>
-      <div class="rates" id="rates"></div>
+      <div class="rates" id="rateList"></div>
     </div>
   </div>
 </section>
@@ -456,7 +456,7 @@ html[dir="rtl"] .drawer{transform:translateX(-105%)}
       <p style="color:#6B639B;font-size:14px;margin:0 0 20px">سفارش آنلاین را می‌توانید در نزدیک‌ترین شعبه تحویل بگیرید یا همان‌جا تعویض کنید. ساعت کاری شعب: ۱۰ تا ۲۱.</p>
       <a class="btn btn-gold" href="#contact">مشاهده آدرس و تماس</a>
     </div>
-    <div class="branches" id="branches"></div>
+    <div class="branches" id="branchList"></div>
   </div>
 </section>
 
@@ -706,7 +706,7 @@ function renderCats(){
 
 /* ---------- rates ---------- */
 function renderRates(){
-  document.getElementById('rates').innerHTML = S.rates.map(r => `
+  document.getElementById('rateList').innerHTML = S.rates.map(r => `
     <div class="rate">
       <small>${r.t}</small>
       <b>${r.usd ? '$' + fa(r.v) : fa(r.v)}</b>
@@ -723,7 +723,7 @@ function renderTrust(){
     </div>`).join('');
 }
 function renderBranches(){
-  document.getElementById('branches').innerHTML = S.branches.map(b => `
+  document.getElementById('branchList').innerHTML = S.branches.map(b => `
     <div class="branch"><b>${b.c}</b><small>${b.a}</small></div>`).join('');
 }
 function renderPosts(){
