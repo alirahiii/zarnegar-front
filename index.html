@@ -53,33 +53,6 @@ ul{list-style:none;margin:0;padding:0}
 .eyebrow::before{content:"";width:26px;height:1px;background:var(--gold)}
 .nastaliq{font-family:"Noto Nastaliq Urdu",Vazirmatn,serif;line-height:2.6}
 
-/* ---------- موتور قیمت‌گذاری ----------
-   قیمت = (وزن × نرخ روز) + اجرت + سود + مالیات
-   مالیات فقط روی اجرت و سود حساب می‌شود، نه روی خود طلا. */
-function goldRate(karat){
-  const want = karat === 24 ? '۲۴' : '۱۸';
-  const hit = (S.rates || []).find(r => String(r.t).includes(want) && !r.usd);
-  if(hit && hit.v) return hit.v;
-  return karat === 24 ? (S.settings.rate24 || 0) : (S.settings.rate18 || 0);
-}
-
-function breakdown(p){
-  const st = S.settings || {};
-  const gold = (Number(p.g) || 0) * goldRate(Number(p.k) || 18);
-  const wage = gold * (Number(st.wage) || 0) / 100;
-  const profit = (gold + wage) * (Number(st.profit) || 0) / 100;
-  const vat = (wage + profit) * (Number(st.vat) || 0) / 100;
-  const total = Math.round((gold + wage + profit + vat) / 1000) * 1000;
-  return {gold, wage, profit, vat, total};
-}
-
-function priceOf(p){
-  if(p.mode === 'fixed' || !p.g) return Number(p.p) || 0;
-  return breakdown(p).total;
-}
-
-const grams = g => (Number(g) || 0).toLocaleString('fa-IR', {maximumFractionDigits:2});
-
 /* ---------- ticker ---------- */
 .ticker{background:var(--ink);color:#EDE8FF;border-bottom:1px solid rgba(233,200,124,.25);overflow:hidden}
 .ticker-track{display:flex;gap:44px;padding:9px 0;white-space:nowrap;animation:slide 34s linear infinite}
@@ -892,6 +865,33 @@ const trust = [
 
 /* S = محتوای زنده سایت */
 let S = JSON.parse(JSON.stringify(DEFAULTS));
+
+/* ---------- موتور قیمت‌گذاری ----------
+   قیمت = (وزن × نرخ روز) + اجرت + سود + مالیات
+   مالیات فقط روی اجرت و سود حساب می‌شود، نه روی خود طلا. */
+function goldRate(karat){
+  const want = karat === 24 ? '۲۴' : '۱۸';
+  const hit = (S.rates || []).find(r => String(r.t).includes(want) && !r.usd);
+  if(hit && hit.v) return hit.v;
+  return karat === 24 ? (S.settings.rate24 || 0) : (S.settings.rate18 || 0);
+}
+
+function breakdown(p){
+  const st = S.settings || {};
+  const gold = (Number(p.g) || 0) * goldRate(Number(p.k) || 18);
+  const wage = gold * (Number(st.wage) || 0) / 100;
+  const profit = (gold + wage) * (Number(st.profit) || 0) / 100;
+  const vat = (wage + profit) * (Number(st.vat) || 0) / 100;
+  const total = Math.round((gold + wage + profit + vat) / 1000) * 1000;
+  return {gold, wage, profit, vat, total};
+}
+
+function priceOf(p){
+  if(p.mode === 'fixed' || !p.g) return Number(p.p) || 0;
+  return breakdown(p).total;
+}
+
+const grams = g => (Number(g) || 0).toLocaleString('fa-IR', {maximumFractionDigits:2});
 
 /* ---------- ticker ---------- */
 function renderTicker(){
