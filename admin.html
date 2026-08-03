@@ -117,6 +117,7 @@ label{display:block;font-size:12px;font-weight:600;color:#5D5590;margin-bottom:5
     <button aria-pressed="false" data-p="products">محصولات</button>
     <button aria-pressed="false" data-p="branches">شعب</button>
     <button aria-pressed="false" data-p="posts">مقاله‌ها</button>
+    <button aria-pressed="false" data-p="pricing">قیمت‌گذاری</button>
     <button aria-pressed="false" data-p="contact">تماس</button>
     <button aria-pressed="false" data-p="publish">انتشار</button>
   </div>
@@ -161,6 +162,30 @@ label{display:block;font-size:12px;font-weight:600;color:#5D5590;margin-bottom:5
   <section class="panel" data-panel="posts">
     <div id="postList"></div>
     <button class="btn btn-dark" id="addPost">افزودن مقاله</button>
+  </section>
+
+  <!-- pricing -->
+  <section class="panel" data-panel="pricing">
+    <div class="card">
+      <h3>فرمول قیمت</h3>
+      <p class="hint" style="margin-top:0">قیمت هر محصول = (وزن × نرخ روز طلا) + اجرت + سود + مالیات. مالیات فقط روی اجرت و سود حساب می‌شود، نه روی خود طلا.</p>
+      <div class="row">
+        <div><label>اجرت ساخت (٪)</label><input type="number" step="0.1" id="s_wage"></div>
+        <div><label>سود فروشنده (٪)</label><input type="number" step="0.1" id="s_profit"></div>
+        <div><label>مالیات بر ارزش افزوده (٪)</label><input type="number" step="0.1" id="s_vat"></div>
+      </div>
+      <div class="row">
+        <div><label>هزینه ارسال (تومان، ۰ = رایگان)</label><input type="number" id="s_shipping"></div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>نرخ پشتیبان</h3>
+      <p class="hint" style="margin-top:0">فقط وقتی استفاده می‌شود که وب‌سرویس قیمت در دسترس نباشد. معمولاً لازم نیست دست بزنید.</p>
+      <div class="row">
+        <div><label>هر گرم طلای ۱۸ عیار</label><input type="number" id="s_rate18"></div>
+        <div><label>هر گرم طلای ۲۴ عیار</label><input type="number" id="s_rate24"></div>
+      </div>
+    </div>
   </section>
 
   <!-- contact -->
@@ -227,6 +252,7 @@ function tryEnter(){
 const BLANK = {
   hero:{eyebrow:'', title:'', motto:'', lead:'', stats:[]},
   cats:[], rates:[], products:[], branches:[], posts:[],
+  settings:{wage:12, profit:7, vat:10, shipping:0, rate18:0, rate24:0},
   contact:{address:'', phone:'', email:'', hours:''}
 };
 let S = JSON.parse(JSON.stringify(BLANK));
@@ -249,6 +275,7 @@ async function load(){
     S = Object.assign(JSON.parse(JSON.stringify(BLANK)), d);
     S.hero = Object.assign({stats:[]}, d.hero || {});
     S.contact = Object.assign({}, d.contact || {});
+    S.settings = Object.assign({wage:12, profit:7, vat:10, shipping:0, rate18:0, rate24:0}, d.settings || {});
     say('محتوا بارگذاری شد.');
   }catch(e){
     say('data.json خوانده نشد. اگر فایل را با دابل‌کلیک باز کرده‌اید، مرورگر اجازه نمی‌دهد؛ روی گیت‌هاب یا با یک سرور محلی باز کنید.', false);
@@ -279,6 +306,8 @@ function bindHome(){
   bind('f_phone',   () => S.contact.phone,   v => S.contact.phone = v);
   bind('f_email',   () => S.contact.email,   v => S.contact.email = v);
   bind('f_hours',   () => S.contact.hours,   v => S.contact.hours = v);
+  ['wage','profit','vat','shipping','rate18','rate24'].forEach(k =>
+    bind('s_' + k, () => S.settings[k], v => S.settings[k] = Number(v) || 0));
 }
 
 /* ==== stats ==== */
@@ -310,12 +339,29 @@ function renderProducts(){
         <div class="row">
           <div><label>نام</label><input data-p="n" data-i="${i}" value="${esc(p.n)}"></div>
           <div><label>دسته</label><input data-p="cat" data-i="${i}" value="${esc(p.cat)}"></div>
-          <div><label>وزن</label><input data-p="w" data-i="${i}" value="${esc(p.w)}"></div>
+          <div><label>برچسب</label><input data-p="tag" data-i="${i}" value="${esc(p.tag)}" placeholder="جدید / پرفروش"></div>
         </div>
         <div class="row">
-          <div><label>قیمت (تومان)</label><input type="number" data-p="p" data-i="${i}" value="${p.p || 0}"></div>
+          <div><label>وزن (گرم)</label><input type="number" step="0.01" data-p="g" data-i="${i}" value="${p.g || 0}"></div>
+          <div>
+            <label>عیار</label>
+            <select data-p="k" data-i="${i}">
+              <option value="18" ${(p.k || 18) == 18 ? 'selected' : ''}>۱۸ عیار</option>
+              <option value="24" ${p.k == 24 ? 'selected' : ''}>۲۴ عیار</option>
+            </select>
+          </div>
+          <div>
+            <label>روش قیمت</label>
+            <select data-p="mode" data-i="${i}">
+              <option value="auto" ${p.mode !== 'fixed' ? 'selected' : ''}>خودکار از نرخ روز</option>
+              <option value="fixed" ${p.mode === 'fixed' ? 'selected' : ''}>قیمت دستی</option>
+            </select>
+          </div>
+        </div>
+        <div class="row">
+          <div><label>قیمت دستی (فقط در حالت دستی)</label><input type="number" data-p="p" data-i="${i}" value="${p.p || 0}"></div>
           <div><label>قیمت قبلی (۰ یعنی ندارد)</label><input type="number" data-p="old" data-i="${i}" value="${p.old || 0}"></div>
-          <div><label>برچسب</label><input data-p="tag" data-i="${i}" value="${esc(p.tag)}" placeholder="جدید / پرفروش"></div>
+          <div><label>محاسبه‌شده</label><input value="${estimate(p)}" readonly style="background:var(--mist)"></div>
         </div>
         <div class="row">
           <div>
@@ -335,7 +381,7 @@ function renderProducts(){
     </div>`).join('');
 }
 document.getElementById('addProd').addEventListener('click', () => {
-  S.products.push({n:'محصول جدید', c:'ring', cat:'انگشتر', w:'۲ گرم', p:0, old:0, tag:'', img:''});
+  S.products.push({n:'محصول جدید', c:'ring', cat:'انگشتر', g:2, k:18, mode:'auto', p:0, old:0, tag:'', img:''});
   renderProducts();
 });
 
@@ -376,6 +422,24 @@ document.getElementById('addPost').addEventListener('click', () => {
   S.posts.push({k:'ring', t:'', s:'', d:'', img:''}); renderPosts();
 });
 
+/* ==== برآورد قیمت با فرمول سایت ==== */
+function estimate(p){
+  const st = S.settings || {};
+  if(p.mode === 'fixed' || !p.g) return Number(p.p || 0).toLocaleString('fa-IR') + ' (دستی)';
+  const rate = Number(p.k) === 24 ? (st.rate24 || 0) : (st.rate18 || 0);
+  const gold = (Number(p.g) || 0) * rate;
+  const wage = gold * (Number(st.wage) || 0) / 100;
+  const profit = (gold + wage) * (Number(st.profit) || 0) / 100;
+  const vat = (wage + profit) * (Number(st.vat) || 0) / 100;
+  return (Math.round((gold + wage + profit + vat) / 1000) * 1000).toLocaleString('fa-IR');
+}
+function refreshEstimates(){
+  document.querySelectorAll('#prodList .item').forEach((row, i) => {
+    const out = row.querySelector('input[readonly]');
+    if(out) out.value = estimate(S.products[i]);
+  });
+}
+
 /* ==== shared events ==== */
 function esc(v){ return String(v ?? '').replace(/"/g, '&quot;').replace(/</g, '&lt;'); }
 
@@ -383,12 +447,14 @@ document.addEventListener('input', e => {
   const t = e.target, i = +t.dataset.i;
   if(t.dataset.p !== undefined && t.dataset.p){
     const key = t.dataset.p;
-    S.products[i][key] = (key === 'p' || key === 'old') ? Number(t.value || 0) : t.value;
+    S.products[i][key] = ['p','old','g','k'].includes(key) ? Number(t.value || 0) : t.value;
+    if(['g','k','mode','p'].includes(key)) refreshEstimates();
     if(key === 'tag') S.products[i].tagType = /جدید/.test(t.value) ? 'new' : '';
   }
   if(t.dataset.b) S.branches[i][t.dataset.b] = t.value;
   if(t.dataset.o) S.posts[i][t.dataset.o] = t.value;
   if(t.dataset.st) S.hero.stats[i][t.dataset.st] = t.value;
+  if(t.id && t.id.startsWith('s_')) refreshEstimates();
 });
 
 document.addEventListener('click', e => {
