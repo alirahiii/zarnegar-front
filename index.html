@@ -53,6 +53,33 @@ ul{list-style:none;margin:0;padding:0}
 .eyebrow::before{content:"";width:26px;height:1px;background:var(--gold)}
 .nastaliq{font-family:"Noto Nastaliq Urdu",Vazirmatn,serif;line-height:2.6}
 
+/* ---------- موتور قیمت‌گذاری ----------
+   قیمت = (وزن × نرخ روز) + اجرت + سود + مالیات
+   مالیات فقط روی اجرت و سود حساب می‌شود، نه روی خود طلا. */
+function goldRate(karat){
+  const want = karat === 24 ? '۲۴' : '۱۸';
+  const hit = (S.rates || []).find(r => String(r.t).includes(want) && !r.usd);
+  if(hit && hit.v) return hit.v;
+  return karat === 24 ? (S.settings.rate24 || 0) : (S.settings.rate18 || 0);
+}
+
+function breakdown(p){
+  const st = S.settings || {};
+  const gold = (Number(p.g) || 0) * goldRate(Number(p.k) || 18);
+  const wage = gold * (Number(st.wage) || 0) / 100;
+  const profit = (gold + wage) * (Number(st.profit) || 0) / 100;
+  const vat = (wage + profit) * (Number(st.vat) || 0) / 100;
+  const total = Math.round((gold + wage + profit + vat) / 1000) * 1000;
+  return {gold, wage, profit, vat, total};
+}
+
+function priceOf(p){
+  if(p.mode === 'fixed' || !p.g) return Number(p.p) || 0;
+  return breakdown(p).total;
+}
+
+const grams = g => Number(g).toLocaleString('fa-IR', {maximumFractionDigits:2});
+
 /* ---------- ticker ---------- */
 .ticker{background:var(--ink);color:#EDE8FF;border-bottom:1px solid rgba(233,200,124,.25);overflow:hidden}
 .ticker-track{display:flex;gap:44px;padding:9px 0;white-space:nowrap;animation:slide 34s linear infinite}
@@ -268,6 +295,73 @@ html[dir="rtl"] .drawer{transform:translateX(-105%)}
 /* reveal */
 .rv{opacity:0;transform:translateY(22px)}
 .rv.in{opacity:1;transform:none;transition:.7s cubic-bezier(.2,.8,.2,1)}
+
+/* checkout */
+.checkout{position:fixed;inset:0;background:var(--mist);z-index:100;overflow-y:auto;display:none}
+.checkout.on{display:block}
+.co-top{background:var(--ink);color:#fff;padding:16px 0;position:sticky;top:0;z-index:2}
+.co-top-in{display:flex;align-items:center;gap:14px}
+.co-back{display:inline-flex;align-items:center;gap:7px;color:#DCD5FF;font-size:13.5px}
+.co-back:hover{color:#fff}
+.co-top b{font-size:16px}
+.steps{display:flex;gap:8px;margin-inline-start:auto;align-items:center}
+.step{display:flex;align-items:center;gap:7px;font-size:12.5px;color:#8F87BE}
+.step i{width:22px;height:22px;border-radius:50%;border:1px solid currentColor;display:grid;place-items:center;font-style:normal;font-size:11px}
+.step.on{color:var(--gold)}
+.step.done{color:#7CE0B0}
+.co-grid{display:grid;grid-template-columns:1.4fr .9fr;gap:22px;padding:26px 0 70px;align-items:start}
+.co-card{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);padding:24px}
+.co-card h3{margin:0 0 4px;font-size:16px}
+.co-card .sub{margin:0 0 18px;font-size:12.5px;color:#8880B5}
+.field{margin-bottom:14px}
+.field label{display:block;font-size:12.5px;font-weight:600;color:#5D5590;margin-bottom:6px}
+.field input,.field textarea,.field select{width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:12px;font:inherit;background:#fff;color:inherit}
+.field textarea{min-height:78px;resize:vertical}
+.field input:focus,.field textarea:focus,.field select:focus{outline:2px solid var(--violet);outline-offset:1px}
+.field .err{display:none;color:#B8425A;font-size:11.5px;margin-top:5px}
+.field.bad input,.field.bad textarea{border-color:#B8425A}
+.field.bad .err{display:block}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.pick-row{display:grid;gap:10px}
+.pick-opt{display:flex;gap:11px;align-items:flex-start;border:1px solid var(--line);border-radius:14px;padding:13px 15px;cursor:pointer;transition:.2s}
+.pick-opt:hover{border-color:var(--iris)}
+.pick-opt input{margin-top:5px;accent-color:var(--violet)}
+.pick-opt b{display:block;font-size:13.5px}
+.pick-opt small{color:#8880B5;font-size:12px}
+.pick-opt:has(input:checked){border-color:var(--violet);background:rgba(109,74,255,.05)}
+.sum{position:sticky;top:96px}
+.sum-line{display:flex;justify-content:space-between;gap:10px;font-size:13px;padding:7px 0;color:#5D5590}
+.sum-line b{color:var(--ink);font-weight:600}
+.sum-total{display:flex;justify-content:space-between;border-top:1px solid var(--line);margin-top:10px;padding-top:14px;font-size:16px;font-weight:700}
+.sum-total span:last-child{color:var(--violet)}
+.sum-items{max-height:230px;overflow-y:auto;margin-bottom:8px}
+.sum-item{display:flex;gap:11px;align-items:center;padding:9px 0;border-bottom:1px solid var(--line)}
+.sum-item .ci-art{width:46px;height:46px}
+.sum-item .ci-art svg{width:28px;height:28px}
+.sum-item b{font-size:12.5px;font-weight:600;display:block}
+.sum-item small{font-size:11.5px;color:#8880B5}
+.sum-item span:last-child{margin-inline-start:auto;font-size:12.5px;font-weight:600;white-space:nowrap}
+.breakdown{background:var(--mist);border-radius:14px;padding:14px 16px;margin-top:12px}
+.breakdown .sum-line{font-size:12.5px;padding:4px 0}
+.co-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:20px}
+.co-actions .btn{justify-content:center}
+.btn-primary{background:var(--ink);color:#fff}
+.btn-primary:hover{background:var(--violet)}
+.btn-line{border:1px solid var(--line);color:#5D5590}
+.btn:disabled{opacity:.45;cursor:not-allowed;transform:none}
+.done-box{text-align:center;max-width:520px;margin:40px auto;background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);padding:44px 28px}
+.done-ic{width:66px;height:66px;border-radius:50%;background:rgba(24,158,107,.12);color:#189E6B;display:grid;place-items:center;margin:0 auto 18px}
+.done-box h2{margin:0 0 8px;font-size:22px}
+.done-box p{color:#6B639B;font-size:13.5px;margin:0 auto 8px;max-width:40ch}
+.code{display:inline-block;background:var(--ink);color:var(--gold);font-weight:700;letter-spacing:.04em;padding:10px 20px;border-radius:12px;margin:14px 0}
+.demo-note{background:rgba(233,200,124,.16);border:1px solid rgba(233,200,124,.5);border-radius:12px;padding:12px 15px;font-size:12.5px;color:#7A5B14;margin-top:20px;line-height:1.8}
+.rate-note{font-size:11.5px;color:#8880B5;margin-top:10px;line-height:1.8}
+@media(max-width:900px){
+  .co-grid{grid-template-columns:1fr}
+  .sum{position:static}
+  .steps{display:none}
+  .two{grid-template-columns:1fr}
+}
 
 /* ---------- responsive ---------- */
 @media(max-width:1050px){
@@ -555,6 +649,123 @@ html[dir="rtl"] .drawer{transform:translateX(-105%)}
   </div>
 </footer>
 
+<!-- ================= checkout ================= -->
+<div class="checkout" id="checkout">
+  <div class="co-top">
+    <div class="wrap co-top-in">
+      <button class="co-back" id="coBack">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10 19l7-7-7-7"/></svg>
+        بازگشت به فروشگاه
+      </button>
+      <b>تکمیل سفارش</b>
+      <div class="steps">
+        <span class="step on" data-step="1"><i>۱</i> اطلاعات</span>
+        <span class="step" data-step="2"><i>۲</i> بررسی</span>
+        <span class="step" data-step="3"><i>۳</i> ثبت</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <!-- step 1 -->
+    <div class="co-grid" id="coStep1">
+      <div class="co-card">
+        <h3>اطلاعات گیرنده</h3>
+        <p class="sub">سفارش با پست پیشتاز بیمه‌شده ارسال می‌شود.</p>
+
+        <div class="two">
+          <div class="field" data-f="name">
+            <label for="oName">نام و نام خانوادگی</label>
+            <input id="oName" autocomplete="name">
+            <span class="err">نام را کامل وارد کنید.</span>
+          </div>
+          <div class="field" data-f="phone">
+            <label for="oPhone">شماره موبایل</label>
+            <input id="oPhone" inputmode="numeric" placeholder="۰۹۱۲۳۴۵۶۷۸۹" autocomplete="tel">
+            <span class="err">شماره موبایل باید با ۰۹ شروع شود و ۱۱ رقم باشد.</span>
+          </div>
+        </div>
+
+        <div class="two">
+          <div class="field" data-f="city">
+            <label for="oCity">شهر</label>
+            <input id="oCity" autocomplete="address-level2">
+            <span class="err">شهر را وارد کنید.</span>
+          </div>
+          <div class="field" data-f="postal">
+            <label for="oPostal">کد پستی (اختیاری)</label>
+            <input id="oPostal" inputmode="numeric">
+            <span class="err">کد پستی باید ۱۰ رقم باشد.</span>
+          </div>
+        </div>
+
+        <div class="field" data-f="address">
+          <label for="oAddress">نشانی کامل</label>
+          <textarea id="oAddress" autocomplete="street-address"></textarea>
+          <span class="err">نشانی را کامل‌تر بنویسید.</span>
+        </div>
+
+        <div class="field">
+          <label>روش تحویل</label>
+          <div class="pick-row">
+            <label class="pick-opt">
+              <input type="radio" name="ship" value="پست پیشتاز" checked>
+              <span><b>پست پیشتاز بیمه‌شده</b><small>۲ تا ۴ روز کاری · رایگان</small></span>
+            </label>
+            <label class="pick-opt">
+              <input type="radio" name="ship" value="تحویل در شعبه">
+              <span><b>تحویل حضوری در شعبه</b><small>آماده‌سازی تا ۲۴ ساعت</small></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="oNote">یادداشت (اختیاری)</label>
+          <textarea id="oNote" placeholder="مثلاً: بسته‌بندی کادویی، سایز انگشتر ۵۴"></textarea>
+        </div>
+
+        <div class="co-actions">
+          <button class="btn btn-primary" id="toReview">بررسی سفارش</button>
+        </div>
+      </div>
+
+      <aside class="co-card sum" id="sumBox1"></aside>
+    </div>
+
+    <!-- step 2 -->
+    <div class="co-grid" id="coStep2" hidden>
+      <div class="co-card">
+        <h3>بررسی نهایی</h3>
+        <p class="sub">اطلاعات را یک بار دیگر ببینید؛ بعد از ثبت قابل ویرایش نیست.</p>
+        <div id="reviewBox"></div>
+        <div class="co-actions">
+          <button class="btn btn-primary" id="placeOrder">ثبت نهایی سفارش</button>
+          <button class="btn btn-line" id="backToForm">ویرایش اطلاعات</button>
+        </div>
+        <div class="demo-note">این یک نسخه نمایشی است. سفارش واقعاً ثبت یا ارسال نمی‌شود و هیچ پرداختی انجام نمی‌گیرد.</div>
+      </div>
+      <aside class="co-card sum" id="sumBox2"></aside>
+    </div>
+
+    <!-- step 3 -->
+    <div id="coStep3" hidden>
+      <div class="done-box">
+        <div class="done-ic">
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+        </div>
+        <h2>سفارش شما ثبت شد</h2>
+        <p>همکاران ما تا حداکثر یک ساعت آینده برای تأیید نهایی و هماهنگی پرداخت با شما تماس می‌گیرند.</p>
+        <div class="code" id="orderCode">—</div>
+        <p id="doneSummary" style="font-size:12.5px"></p>
+        <div class="co-actions" style="justify-content:center">
+          <button class="btn btn-primary" id="backHome">بازگشت به فروشگاه</button>
+        </div>
+        <div class="demo-note">این صفحه نمایشی است؛ سفارشی واقعاً ثبت نشده و اطلاعات شما جایی ذخیره نشد.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ================= cart drawer ================= -->
 <div class="scrim" id="scrim"></div>
 <aside class="drawer" id="drawer" aria-label="سبد خرید">
@@ -567,7 +778,7 @@ html[dir="rtl"] .drawer{transform:translateX(-105%)}
   <div class="drawer-body" id="cartBody"></div>
   <div class="drawer-foot">
     <div class="total"><span>جمع کل</span><span id="total">۰ تومان</span></div>
-    <button class="btn">ادامه فرآیند خرید</button>
+    <button class="btn" id="toCheckout">ادامه فرآیند خرید</button>
   </div>
 </aside>
 
@@ -634,14 +845,14 @@ const DEFAULTS = {
     {t:'اونس جهانی', v:2412, d:'+۰٫۲٪', usd:true}
   ],
   products: [
-    {n:'انگشتر ظریف مهتاب', c:'ring', cat:'انگشتر', w:'۲٫۱ گرم', p:19800000, old:0, tag:'جدید', tagType:'new', img:''},
-    {n:'گردنبند آویز ستاره', c:'necklace', cat:'گردنبند', w:'۳٫۴ گرم', p:31200000, old:34500000, tag:'٪۱۰ تخفیف', img:''},
-    {n:'گوشواره حلقه‌ای نیلا', c:'earring', cat:'گوشواره', w:'۲٫۸ گرم', p:24600000, old:0, img:''},
-    {n:'دستبند چرم و طلا', c:'bracelet', cat:'دستبند', w:'۱٫۹ گرم', p:16400000, old:0, tag:'پرفروش', img:''},
-    {n:'النگو حصیری کلاسیک', c:'bangle', cat:'النگو', w:'۵٫۶ گرم', p:48900000, old:0, img:''},
-    {n:'انگشتر نگین فیروزه', c:'ring', cat:'انگشتر', w:'۳٫۲ گرم', p:29700000, old:0, tag:'جدید', tagType:'new', img:''},
-    {n:'گردنبند مروارید طبیعی', c:'necklace', cat:'گردنبند', w:'۲٫۶ گرم', p:23100000, old:25800000, tag:'٪۱۰ تخفیف', img:''},
-    {n:'گوشواره میخی درسا', c:'earring', cat:'گوشواره', w:'۱٫۴ گرم', p:12900000, old:0, img:''}
+    {n:'انگشتر ظریف مهتاب', c:'ring', cat:'انگشتر', g:2.1, k:18, mode:'auto', p:0, old:0, tag:'جدید', tagType:'new', img:''},
+    {n:'گردنبند آویز ستاره', c:'necklace', cat:'گردنبند', g:3.4, k:18, mode:'auto', p:0, old:0, tag:'', img:''},
+    {n:'گوشواره حلقه‌ای نیلا', c:'earring', cat:'گوشواره', g:2.8, k:18, mode:'auto', p:0, old:0, tag:'', img:''},
+    {n:'دستبند چرم و طلا', c:'bracelet', cat:'دستبند', g:1.9, k:18, mode:'auto', p:0, old:0, tag:'پرفروش', img:''},
+    {n:'النگو حصیری کلاسیک', c:'bangle', cat:'النگو', g:5.6, k:18, mode:'auto', p:0, old:0, tag:'', img:''},
+    {n:'انگشتر نگین فیروزه', c:'ring', cat:'انگشتر', g:3.2, k:18, mode:'auto', p:0, old:0, tag:'جدید', tagType:'new', img:''},
+    {n:'گردنبند مروارید طبیعی', c:'necklace', cat:'گردنبند', g:2.6, k:18, mode:'auto', p:0, old:0, tag:'', img:''},
+    {n:'گوشواره میخی درسا', c:'earring', cat:'گوشواره', g:1.4, k:18, mode:'auto', p:0, old:0, tag:'', img:''}
   ],
   branches: [
     {c:'تهران', a:'فرشته · تهرانپارس · سعادت‌آباد'},
@@ -656,6 +867,14 @@ const DEFAULTS = {
     {k:'coin', t:'اجرت ساخت چیست و چطور محاسبه می‌شود؟', s:'قیمت‌گذاری', d:'تفاوت اجرت، سود فروشنده و مالیات را با یک مثال ساده مرور می‌کنیم.', img:''},
     {k:'necklace', t:'طلای زرد، سفید یا رزگلد؟', s:'انتخاب رنگ', d:'کدام رنگ طلا با رنگ پوست شما هماهنگ‌تر است و در ترکیب چه نکته‌ای دارد.', img:''}
   ],
+  settings: {
+    wage: 12,        // درصد اجرت ساخت
+    profit: 7,       // درصد سود فروشنده
+    vat: 10,         // درصد مالیات بر ارزش افزوده (روی اجرت و سود)
+    shipping: 0,     // هزینه ارسال به تومان (۰ = رایگان)
+    rate18: 18281100, // نرخ پشتیبان اگر سرویس در دسترس نبود
+    rate24: 24372000
+  },
   contact: {
     address: 'تهران، خیابان فرشته، پلاک ۱۲',
     phone: '۰۲۱ ۹۱۰۰ ۰۰۰۰',
@@ -767,10 +986,10 @@ function drawProducts(){
       </div>
       <div class="card-body">
         <h3>${p.n}</h3>
-        <div class="meta"><span>${p.cat}</span><span>وزن ${p.w}</span></div>
+        <div class="meta"><span>${p.cat}</span><span>${grams(p.g)} گرم · ${fa(p.k || 18)} عیار</span></div>
         <div class="card-foot">
           <div class="price">
-            <b>${money(p.p)}</b>
+            <b>${money(priceOf(p))}</b>
             ${p.old ? `<small>${money(p.old)}</small>` : ''}
           </div>
           <button class="add" data-add="${p.n}">افزودن</button>
@@ -810,8 +1029,8 @@ function showPiece(i){
   [...dots.children].forEach((d, x) => d.setAttribute('aria-selected', x === i));
   const s = showcase[i];
   document.getElementById('vName').textContent = s.n;
-  document.getElementById('vSub').textContent = `${s.cat} · وزن ${s.w}`;
-  document.getElementById('vPrice').textContent = money(s.p);
+  document.getElementById('vSub').textContent = `${s.cat} · ${grams(s.g)} گرم طلای ${fa(s.k || 18)} عیار`;
+  document.getElementById('vPrice').textContent = money(priceOf(s));
 }
 function autoPlay(){
   clearInterval(timer);
@@ -839,14 +1058,16 @@ function renderCart(){
     body.innerHTML = cart.map((p, i) => `
       <div class="ci">
         <span class="ci-art">${pic(p)}</span>
-        <span class="ci-txt"><b>${p.n}</b><small>${p.cat} · وزن ${p.w}</small></span>
+        <span class="ci-txt"><b>${p.n}</b><small>${p.cat} · ${grams(p.g)} گرم</small></span>
         <span>
-          <div style="font-weight:700;font-size:13px">${money(p.p)}</div>
+          <div style="font-weight:700;font-size:13px">${money(priceOf(p))}</div>
           <button class="ci-rm" data-rm="${i}">حذف</button>
         </span>
       </div>`).join('');
   }
-  document.getElementById('total').textContent = money(cart.reduce((s, p) => s + Number(p.p), 0));
+  document.getElementById('total').textContent = money(cartTotal());
+  const go = document.getElementById('toCheckout');
+  if(go) go.disabled = !cart.length;
 }
 
 document.addEventListener('click', e => {
@@ -864,6 +1085,139 @@ document.addEventListener('click', e => {
   if(rm){ cart.splice(+rm.dataset.rm, 1); renderCart(); }
   const fav = e.target.closest('.fav');
   if(fav) fav.classList.toggle('on');
+});
+
+/* ---------- فرآیند سفارش ---------- */
+function cartTotal(){ return cart.reduce((sum, p) => sum + priceOf(p), 0); }
+
+const co = document.getElementById('checkout');
+const faDigits = t => String(t).replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d))
+                                .replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d));
+
+function summaryHTML(){
+  const st = S.settings || {};
+  const items = cart.map(p => `
+    <div class="sum-item">
+      <span class="ci-art">${pic(p)}</span>
+      <span><b>${p.n}</b><small>${grams(p.g)} گرم · ${fa(p.k || 18)} عیار</small></span>
+      <span>${money(priceOf(p))}</span>
+    </div>`).join('');
+
+  const goods = cartTotal();
+  const ship = Number(st.shipping) || 0;
+  const totals = cart.reduce((acc, p) => {
+    if(p.mode === 'fixed' || !p.g) return acc;
+    const b = breakdown(p);
+    acc.gold += b.gold; acc.wage += b.wage; acc.profit += b.profit; acc.vat += b.vat;
+    return acc;
+  }, {gold:0, wage:0, profit:0, vat:0});
+
+  return `
+    <h3>سبد شما</h3>
+    <p class="sub">${fa(cart.length)} قطعه</p>
+    <div class="sum-items">${items}</div>
+    <div class="breakdown">
+      <div class="sum-line"><span>ارزش طلا</span><b>${money(Math.round(totals.gold))}</b></div>
+      <div class="sum-line"><span>اجرت ساخت (${fa(st.wage)}٪)</span><b>${money(Math.round(totals.wage))}</b></div>
+      <div class="sum-line"><span>سود فروشنده (${fa(st.profit)}٪)</span><b>${money(Math.round(totals.profit))}</b></div>
+      <div class="sum-line"><span>مالیات بر ارزش افزوده (${fa(st.vat)}٪)</span><b>${money(Math.round(totals.vat))}</b></div>
+    </div>
+    <div class="sum-line" style="margin-top:10px"><span>هزینه ارسال</span><b>${ship ? money(ship) : 'رایگان'}</b></div>
+    <div class="sum-total"><span>مبلغ قابل پرداخت</span><span>${money(goods + ship)}</span></div>
+    <p class="rate-note">قیمت بر پایه نرخ هر گرم طلای ۱۸ عیار (${money(goldRate(18))}) محاسبه شده و تا زمان تأیید سفارش معتبر است.</p>`;
+}
+
+function openCheckout(){
+  if(!cart.length) return;
+  closeCart();
+  showStep(1);
+  document.getElementById('sumBox1').innerHTML = summaryHTML();
+  co.classList.add('on');
+  document.body.style.overflow = 'hidden';
+  window.scrollTo(0, 0);
+}
+function closeCheckout(){
+  co.classList.remove('on');
+  document.body.style.overflow = '';
+}
+function showStep(n){
+  [1, 2, 3].forEach(i => {
+    const box = document.getElementById('coStep' + i);
+    if(box) box.hidden = i !== n;
+  });
+  document.querySelectorAll('.step').forEach(el => {
+    const i = +el.dataset.step;
+    el.classList.toggle('on', i === n);
+    el.classList.toggle('done', i < n);
+  });
+  window.scrollTo(0, 0);
+}
+
+document.getElementById('toCheckout').addEventListener('click', openCheckout);
+document.getElementById('coBack').addEventListener('click', closeCheckout);
+document.getElementById('backToForm').addEventListener('click', () => showStep(1));
+document.getElementById('backHome').addEventListener('click', () => { closeCheckout(); showStep(1); });
+
+const FIELDS = {
+  name:    {el:'oName',    ok: v => v.trim().length >= 3},
+  phone:   {el:'oPhone',   ok: v => /^09\d{9}$/.test(faDigits(v).replace(/[\s-]/g, ''))},
+  city:    {el:'oCity',    ok: v => v.trim().length >= 2},
+  address: {el:'oAddress', ok: v => v.trim().length >= 10},
+  postal:  {el:'oPostal',  ok: v => { const d = faDigits(v).trim(); return !d || /^\d{10}$/.test(d); }}
+};
+
+function validate(){
+  let ok = true;
+  Object.entries(FIELDS).forEach(([key, cfg]) => {
+    const input = document.getElementById(cfg.el);
+    const wrap = document.querySelector(`.field[data-f="${key}"]`);
+    const good = cfg.ok(input.value);
+    wrap.classList.toggle('bad', !good);
+    if(!good && ok){ input.focus(); ok = false; }
+  });
+  return ok;
+}
+
+function orderData(){
+  return {
+    name: document.getElementById('oName').value.trim(),
+    phone: faDigits(document.getElementById('oPhone').value).replace(/[\s-]/g, ''),
+    city: document.getElementById('oCity').value.trim(),
+    postal: faDigits(document.getElementById('oPostal').value).trim(),
+    address: document.getElementById('oAddress').value.trim(),
+    note: document.getElementById('oNote').value.trim(),
+    ship: (document.querySelector('input[name="ship"]:checked') || {}).value || 'پست پیشتاز'
+  };
+}
+
+document.getElementById('toReview').addEventListener('click', () => {
+  if(!validate()) return;
+  const o = orderData();
+  document.getElementById('reviewBox').innerHTML = `
+    <div class="breakdown">
+      <div class="sum-line"><span>نام گیرنده</span><b>${o.name}</b></div>
+      <div class="sum-line"><span>موبایل</span><b>${fa(o.phone)}</b></div>
+      <div class="sum-line"><span>شهر</span><b>${o.city}</b></div>
+      ${o.postal ? `<div class="sum-line"><span>کد پستی</span><b>${fa(o.postal)}</b></div>` : ''}
+      <div class="sum-line"><span>نشانی</span><b style="max-width:60%;text-align:left">${o.address}</b></div>
+      <div class="sum-line"><span>روش تحویل</span><b>${o.ship}</b></div>
+      ${o.note ? `<div class="sum-line"><span>یادداشت</span><b style="max-width:60%;text-align:left">${o.note}</b></div>` : ''}
+    </div>`;
+  document.getElementById('sumBox2').innerHTML = summaryHTML();
+  showStep(2);
+});
+
+document.getElementById('placeOrder').addEventListener('click', () => {
+  const o = orderData();
+  const rnd = String(Math.floor(1000 + Math.random() * 9000));
+  const d = new Date();
+  const stamp = `${String(d.getFullYear()).slice(2)}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
+  document.getElementById('orderCode').textContent = `ZN-${stamp}-${rnd}`;
+  document.getElementById('doneSummary').textContent =
+    `${fa(cart.length)} قطعه · ${money(cartTotal() + (Number(S.settings.shipping) || 0))} · ${o.ship} به ${o.city}`;
+  cart.length = 0;
+  renderCart();
+  showStep(3);
 });
 
 /* ---------- newsletter ---------- */
@@ -907,6 +1261,7 @@ async function loadLivePrices(){
       dn: r.d && ['-', '−'].includes(String(r.d).trim()[0])
     }));
     renderRates(); renderTicker();
+    drawProducts(); buildVitrine(); renderCart();  // قیمت‌ها با نرخ جدید بازمحاسبه می‌شوند
 
     const stamp = document.getElementById('stamp');
     if(stamp && data.updated_at) stamp.textContent = 'آخرین به‌روزرسانی: ' + data.updated_at;
