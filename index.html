@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>زرنگار | گالری طلا و جواهر</title>
-<meta name="description" content="خرید آنلاین طلا و جواهر ۱۸ عیار؛ انگشتر، گردنبند، دستبند و گوشواره با طراحی اختصاصی گالری زرنگار.">
+<title>امین | گالری طلا و جواهر</title>
+<meta name="description" content="خرید آنلاین طلا و جواهر ۱۸ عیار؛ انگشتر، گردنبند، دستبند و گوشواره با طراحی اختصاصی گالری امین.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700;800&family=Noto+Nastaliq+Urdu:wght@400;700&display=swap" rel="stylesheet">
@@ -78,7 +78,7 @@ function priceOf(p){
   return breakdown(p).total;
 }
 
-const grams = g => Number(g).toLocaleString('fa-IR', {maximumFractionDigits:2});
+const grams = g => (Number(g) || 0).toLocaleString('fa-IR', {maximumFractionDigits:2});
 
 /* ---------- ticker ---------- */
 .ticker{background:var(--ink);color:#EDE8FF;border-bottom:1px solid rgba(233,200,124,.25);overflow:hidden}
@@ -1270,6 +1270,36 @@ async function loadLivePrices(){
   }
 }
 
+/* ---------- سازگاری با نسخه‌های قدیمی data.json ---------- */
+function normalize(){
+  S.settings = Object.assign({}, DEFAULTS.settings, S.settings || {});
+  S.hero     = Object.assign({}, DEFAULTS.hero, S.hero || {});
+  S.contact  = Object.assign({}, DEFAULTS.contact, S.contact || {});
+  S.cats     = S.cats && S.cats.length ? S.cats : DEFAULTS.cats;
+  S.branches = S.branches || [];
+  S.posts    = S.posts || [];
+
+  S.products = (S.products || []).map(raw => {
+    const p = Object.assign({}, raw);
+    // نسخه قدیمی وزن را متنی داشت (مثل «۲٫۱ گرم») و قیمت ثابت
+    if(p.g === undefined || p.g === null || p.g === ''){
+      const digits = String(p.w || '')
+        .replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d))
+        .replace('٫', '.')
+        .match(/[\d.]+/);
+      p.g = digits ? parseFloat(digits[0]) : 0;
+      if(!p.mode) p.mode = p.g ? 'auto' : 'fixed';
+    }
+    p.g = Number(p.g) || 0;
+    p.k = Number(p.k) || 18;
+    p.p = Number(p.p) || 0;
+    p.old = Number(p.old) || 0;
+    p.mode = p.mode === 'fixed' ? 'fixed' : 'auto';
+    if(!p.g) p.mode = 'fixed';   // بدون وزن، محاسبه خودکار ممکن نیست
+    return p;
+  });
+}
+
 /* ---------- boot ---------- */
 function renderAll(){
   renderHero(); renderTicker(); renderCats(); renderRates();
@@ -1287,6 +1317,7 @@ async function boot(){
   }catch(e){
     console.info('data.json خوانده نشد؛ محتوای پیش‌فرض نمایش داده می‌شود.');
   }
+  normalize();
   renderAll();
   reveal();
   loadLivePrices();
